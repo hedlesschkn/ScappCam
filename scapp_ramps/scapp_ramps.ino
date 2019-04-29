@@ -16,29 +16,29 @@
  */
 
 //Stepper defines
-#define E0_STEP D26
-#define E0_DIR D28
-#define E0_EN D24
-#define E1_STEP D36
-#define E1_DIR D34
-#define E1_EN D30
+#define E0_STEP 26 //Digital 26
+#define E0_DIR 28
+#define E0_EN 24
+#define E1_STEP 36
+#define E1_DIR 34
+#define E1_EN 30
 #define X_STEP A0
 #define X_DIR A1
-#define X_EN D38
+#define X_EN 38
 #define Y_STEP A6
 #define Y_DIR A7
 #define Y_EN A2
-#define Z_STEP D46
-#define Z_DIR D48
+#define Z_STEP 46
+#define Z_DIR 48
 #define Z_EN A8
 
 //endstop defines
-#define end_Xmin D3
-#define end_Xmax D2
-#define end_Ymin D14
-#define end_Ymax D15
-#define end_Zmin D18
-#define end_Zmax D19
+#define end_Xmin 3
+#define end_Xmax 2
+#define end_Ymin 14
+#define end_Ymax 15
+#define end_Zmin 18
+#define end_Zmax 19
 
 //thermister defines
 #define T0 A13
@@ -46,25 +46,10 @@
 #define T2 A15
 
 //Servo defines
-#define Servo1 D11
-#define Servo2 D6
-#define Servo3 D5
-#define Servo4 D4
-
-//LCD defines(16x2 or 20x4 w/ LiquidCrystal library)
-//https://forum.arduino.cc/index.php?topic=448001.0
-//#define BEEPER 33           // Beeper and is Connected into GADGETS3D shield MEGA_18BEEPER
-//#define LCD_PINS_RS 16      // LCD control and is connected into GADGETS3D  shield LCDRS
-//#define LCD_PINS_ENABLE 17  // LCD enable pin and is connected into GADGETS3D shield LCDE
-//#define LCD_PINS_D4 23      // LCD signal pin, connected to Gadgets3D shield LCD4
-//#define LCD_PINS_D5 25      // LCD signal pin, connected to Gadgets3D shield LCD5
-//#define LCD_PINS_D6 27      // LCD signal pin, connected to Gadgets3D shield LCD6
-//#define LCD_PINS_D7 29      // LCD signal pin, connected to Gadgets3D shield LCD7
-//#define BTN_EN1 37          // Encoder left direction, connected to Gadgets3D shield S_E1
-//#define BTN_EN2 35          // Encoder right direction, connected to Gadgets3D shield S_E2
-//#define BTN_ENC 31          // Encoder Click, connected to Gadgets3D shield S_EC
-//#include <LiquidCrystal.h>
-//LiquidCrystal lcd(LCD_PINS_RS, LCD_PINS_ENABLE, LCD_PINS_D4, LCD_PINS_D5, LCD_PINS_D6, LCD_PINS_D7);
+#define Servo1 11
+#define Servo2 6
+#define Servo3 5
+#define Servo4 4
 
 //LCD defines (12864 RepRapDiscount Full Graphic w/ u8glib library)
 //https://reprap.org/wiki/RepRapDiscount_Full_Graphic_Smart_Controller
@@ -73,14 +58,55 @@
 //https://github.com/ellensp/rrd-glcd-tester/blob/master/rrd-glcd-test.ino
 //use u8g2 instead of u8glib
 #include <SPI.h>
-#include <U8glib.h>
+#include <U8glib.h> //Tools > Manage Libraries... > "U8glib" by Oliver > Install
 #include <SD.h>
+
+#define DOGLCD_CS       16
+#define DOGLCD_MOSI     17
+#define DOGLCD_SCK      23
+#define BTN_EN1         31
+#define BTN_EN2         33
+#define BTN_ENC         35
+#define SD_DETECT_PIN   49
+#define SDSS            53
+#define BEEPER_PIN      37
+#define KILL_PIN        41
+
+Sd2Card card;
+SdVolume volume;
+
+//steper example
+//https://howtomechatronics.com/tutorials/arduino/how-to-control-stepper-motor-with-a4988-driver-and-arduino/
 
 
 void setup() {
+  //stepper pins
+  pinMode(E0_STEP,OUTPUT); 
+  pinMode(E0_DIR,OUTPUT);
+  pinMode(E0_EN,OUTPUT);
+  digitalWrite(E0_EN,LOW); //ENABLE pin is used for turning on or off the FET outputs. So a logic high will keep the outputs disabled.
 
 }
 
 void loop() {
-
+//can also try the 'AccelStepper' library
+digitalWrite(E0_DIR,HIGH); // Enables the motor to move in a particular direction
+  // Makes 200 pulses for making one full cycle rotation
+  for(int x = 0; x < 200; x++) {
+    digitalWrite(E0_STEP,HIGH); 
+    delayMicroseconds(400); //longer delay is slower motor speed, shorter is faster. shorter also loses torque
+    digitalWrite(E0_STEP,LOW); 
+    delayMicroseconds(400); 
+  }
+  delay(1000); // One second delay
+  
+  digitalWrite(E0_DIR,LOW); //Changes the rotations direction
+  // Makes 400 pulses for making two full cycle rotation
+  for(int x = 0; x < 400; x++) {
+    digitalWrite(E0_STEP,HIGH);
+    delayMicroseconds(900);
+    digitalWrite(E0_STEP,LOW);
+    delayMicroseconds(900);
+  }
+  delay(1000);
 }
