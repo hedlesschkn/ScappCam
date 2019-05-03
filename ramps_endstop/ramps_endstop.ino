@@ -6,6 +6,9 @@
 #define end_Zmin 18
 #define end_Zmax 19
 
+//WARNING! double check the wiring of the endstops.  
+//I recieved an endstop with the servo-side red/black swapped and had to repin it
+
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
@@ -16,7 +19,10 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
   if (!digitalRead(end_Xmin) ){
-    Serial.println("pressed"); //these 'MakerBot' endstops are normally open, need to use a !(not)
+    Serial.println("pressed Xmin"); //these 'MakerBot' endstops are normally open, need to use a !(not)
+  }
+  else if(!digitalRead(end_Xmax) ){
+    Serial.println("pressed Xmax");
   }
   else{
     Serial.println("open");
