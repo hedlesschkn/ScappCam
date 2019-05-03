@@ -1,3 +1,3 @@
 # ScappCam
-single camera automated photogrammetry platform
+single camera automated photogrammetry platform  
 "Over-engineered and slightly redundant"
