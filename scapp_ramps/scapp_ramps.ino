@@ -104,9 +104,9 @@ digitalWrite(E0_DIR,HIGH); // Enables the motor to move in a particular directio
   // Makes 400 pulses for making two full cycle rotation
   for(int x = 0; x < 400; x++) {
     digitalWrite(E0_STEP,HIGH);
-    delayMicroseconds(900);
+    delayMicroseconds(1500);
     digitalWrite(E0_STEP,LOW);
-    delayMicroseconds(900);
+    delayMicroseconds(1500);
   }
   delay(1000);
 }
