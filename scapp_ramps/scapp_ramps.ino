@@ -77,6 +77,14 @@ SdVolume volume;
 
 //steper example
 //https://howtomechatronics.com/tutorials/arduino/how-to-control-stepper-motor-with-a4988-driver-and-arduino/
+//https://forum.arduino.cc/index.php?topic=377364.0
+//  you need to use millis() or micros() to control the timing without blocking. The delay() function blocks the Arduino until it finishes.
+//  will i need to use interrupts to trigger steps to handle multiple motors simultaniously?
+
+//SCAPPCAM Parameters
+#define base_teeth    540
+#define pinion_teeth  13
+#define stepper_360   200 //number of steps for full rotation
 
 
 void setup() {
@@ -86,27 +94,55 @@ void setup() {
   pinMode(E0_EN,OUTPUT);
   digitalWrite(E0_EN,LOW); //ENABLE pin is used for turning on or off the FET outputs. So a logic high will keep the outputs disabled.
 
+  //LCD pins
+  pinMode(KILL_PIN, INPUT);             // Set KILL_PIN as an unput
+  digitalWrite(KILL_PIN, HIGH);         // turn on pullup resistors
+  pinMode(BTN_EN1, INPUT);              // Set BTN_EN1 as an input, half of the encoder
+  digitalWrite(BTN_EN1, HIGH);          // turn on pullup resistors
+  pinMode(BTN_EN2, INPUT);              // Set BTN_EN2 as an input, second half of the encoder
+  digitalWrite(BTN_EN2, HIGH);          // turn on pullup resistors
+  pinMode(BTN_ENC, INPUT);              // Set BTN_ENC as an input, encoder button
+  digitalWrite(BTN_ENC, HIGH);          // turn on pullup resistors
+  u8g.setFont(u8g_font_helvR08);        //Set the font for the display
+  u8g.setColorIndex(1);                 // Instructs the display to draw with a pixel on. 
 }
 
 void loop() {
 //can also try the 'AccelStepper' library
-digitalWrite(E0_DIR,HIGH); // Enables the motor to move in a particular direction
-  // Makes 200 pulses for making one full cycle rotation
-  for(int x = 0; x < 200; x++) {
-    digitalWrite(E0_STEP,HIGH); 
-    delayMicroseconds(400); //longer delay is slower motor speed, shorter is faster. shorter also loses torque
-    digitalWrite(E0_STEP,LOW); 
-    delayMicroseconds(400); 
-  }
-  delay(1000); // One second delay
+//digitalWrite(E0_DIR,HIGH); // Enables the motor to move in a particular direction
+//  // Makes 200 pulses for making one full cycle rotation
+//  for(int x = 0; x < 200; x++) {
+//    digitalWrite(E0_STEP,HIGH); 
+//    delayMicroseconds(400); //longer delay is slower motor speed, shorter is faster. shorter also loses torque
+//    digitalWrite(E0_STEP,LOW); 
+//    delayMicroseconds(400); 
+//  }
+//  delay(1000); // One second delay
+//  
+//  digitalWrite(E0_DIR,LOW); //Changes the rotations direction
+//  // Makes 400 pulses for making two full cycle rotation
+//  for(int x = 0; x < 400; x++) {
+//    digitalWrite(E0_STEP,HIGH);
+//    delayMicroseconds(1500);
+//    digitalWrite(E0_STEP,LOW);
+//    delayMicroseconds(1500);
+//  }
+//  delay(1000);
+
+//menu example
+//https://arduino.stackexchange.com/questions/42897/menu-with-switch-case-not-behaving-correctly
+
+
+  /*
+   * display the menu
+   * SCAPP CAM title
+   * Vertical Height (current height in degrees)
+   * Number of pictures (angle between pics)
+   * wait time (time in ms)
+   * Go!
+   * show current/total pictures
+   * show % completion
+   * 
+   */
   
-  digitalWrite(E0_DIR,LOW); //Changes the rotations direction
-  // Makes 400 pulses for making two full cycle rotation
-  for(int x = 0; x < 400; x++) {
-    digitalWrite(E0_STEP,HIGH);
-    delayMicroseconds(1500);
-    digitalWrite(E0_STEP,LOW);
-    delayMicroseconds(1500);
-  }
-  delay(1000);
 }
