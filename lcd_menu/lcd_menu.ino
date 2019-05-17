@@ -1,12 +1,8 @@
 #include <SPI.h>
-#include <RotaryEncoder.h> //Matthias Hertel
+#include <RotaryEncoder.h> //ManageLibraries > RotaryEncoder by Matthias Hertel
 //#include "U8g2lib.h" //ManageLibraries > U8g2
 #include <U8glib.h>
-#include <Wire.h>
-
-#define PULLUP true     
-#define INVERT true    
-#define DEBOUNCE_MS 20   
+#include <Wire.h> 
 
 #define DOGLCD_CS       16
 #define DOGLCD_MOSI     17
@@ -43,10 +39,10 @@ char hAngleStr[16];                         //Char array to store Horizontal Ang
 int vAngleInt = 0;
 int hAngleInt = 0;
 
-char vPicsStr[16];                         //Char array to store Vertical Pictures as a string 
-char hPicsStr[16];                         //Char array to store Horizontal Pictures as a string
-int vPicsInt = 0;
-int hPicsInt = 0;
+char vPicStr[16];                         //Char array to store Vertical Pictures as a string 
+char hPicStr[16];                         //Char array to store Horizontal Pictures as a string
+int vPicInt = 0;
+int hPicInt = 0;
 
 //https://forum.arduino.cc/index.php?topic=151669.0
 
@@ -89,7 +85,7 @@ void setup() {
     Serial.begin(9600);
     Serial.println("ScappCam");
     u8g.begin(); // Added
-    u8g.setFont(u8g_font_unifont);       
+    u8g.setFont(u8g_font_unifont); //10 pixel height
 //  u8g.setDefaultForegroundColor();
 
     pinMode(BTN_ENC, INPUT);              // Set BTN_ENC as an unput, encoder button
@@ -231,12 +227,56 @@ void loop() {
               case 3: //pictures screen
                 switch (menu_current){
                   case 0: //number vertical
-                    //***do vertical angle stuff
                     Serial.println("vertical pictures");
+                    //***do vertical picture stuff
+                    okReleased = 0;
+                    selected = 1;
+                    Serial.println("selected set to 1");
+                    drawScreen();
+                    while(okReleased != 1){
+                      readEncoder();
+                      if (ccw==1) {
+                        if (vPicInt > 0) {
+                            vPicInt--;
+                            drawScreen();
+                        }
+                      }
+                      if (cw==1) {       
+                        if (vPicInt < 180) {
+                            vPicInt++;
+                            drawScreen();
+                        }
+                      }
+                    } //while
+                    Serial.println("left vertical picture");
+                    selected = 0;
+                    Serial.println("selected set to 0");
                     break;
                   case 1: //number horizontal
-                    //***do horizontal angle stuff
                     Serial.println("horizontal pictures");
+                    //***do horizontal picture stuff
+                    okReleased = 0;
+                    selected = 1;
+                    Serial.println("selected set to 1");
+                    drawScreen();
+                    while(okReleased != 1){
+                      readEncoder();
+                      if (ccw==1) {
+                        if (hPicInt > 0) {
+                            hPicInt--;
+                            drawScreen();
+                        }
+                      }
+                      if (cw==1) {       
+                        if (hPicInt < 180) {
+                            hPicInt++;
+                            drawScreen();
+                        }
+                      }
+                    } //while
+                    Serial.println("left horizontal picture");
+                    selected = 0;
+                    Serial.println("selected set to 0");
                     break;
                   case 2: //Back
                     screen = 1; //goto root screen
@@ -323,6 +363,19 @@ void drawScreen() {
     } while( u8g.nextPage() );
 }
 
+int calcPicAngle(int numPics, int max_angle){
+  if(numPics == 0){
+    return 0;
+  }
+  else{
+    int tmp;
+    tmp = (max_angle/(numPics +1));
+    //Serial.println(tmp);
+    return(tmp);
+  }  
+  //return 3;
+}
+
 void whatToDraw() {
     uint8_t i, h;
     int w, d;
@@ -336,7 +389,7 @@ void whatToDraw() {
             u8g.drawStr(32,16,"ScappCam");
             u8g.drawStr(32,32,"Tim Hebert");
             u8g.drawBitmapP( 0, 16, 4, 32, scappcam_bitmap); //x,y,width/8,height
-            u8g.drawFrame(0,51,64,13);
+            //u8g.drawFrame(0,51,64,13);
             //press OK to calibrate
         } break;
         case 1: { //root screen
@@ -352,7 +405,7 @@ void whatToDraw() {
                 d = 8; //left justified 8px
                 u8g.setDefaultForegroundColor();
                 if ( i == menu_current ) { //draw menu selection highlight box
-                    u8g.drawBox(0, (i+1)*h+1, w, h); //filled box
+                    u8g.drawBox(0, (i+1)*h+1, w, h); //filled box cleaner location
                     u8g.setDefaultBackgroundColor();
                 }
                 u8g.drawStr(d, (i+1)*h+1, menu_strings[i]);
@@ -375,14 +428,14 @@ void whatToDraw() {
             //draw variables
             u8g.setDefaultForegroundColor();
             u8g.drawStr(0, 52, "V:"); //draw V
-            sprintf (vAngleStr, "%d(%d)", vAngleInt, 3); //build angle string
+            sprintf (vAngleStr, "%d%c", vAngleInt,0xB0); //build angle string (0xB0 is '°' degree symbol)
             u8g.drawStr( 18, 52, vAngleStr ); //draw angle value
             if (selected == 1 && menu_current == 0){//vertical selected
               u8g.drawFrame(0,51,64,13);
             }
             
             u8g.drawStr(64, 52, "H:");
-            sprintf (hAngleStr, "%d(%d)", hAngleInt, 10);
+            sprintf (hAngleStr, "%d%c", hAngleInt, 0xB0);
             u8g.drawStr( 82, 52, hAngleStr );
             if (selected == 1 && menu_current == 1){//horizontal selected
               u8g.drawFrame(64,51,64,13);
@@ -402,6 +455,21 @@ void whatToDraw() {
                     u8g.setDefaultBackgroundColor();
                 }
                 u8g.drawStr(d, i*h, menu_strings[i]);
+                //draw variables
+                u8g.setDefaultForegroundColor();
+                u8g.drawStr(0, 52, "V:"); //draw V
+                sprintf (vPicStr, "%d(%d%c)", vPicInt, calcPicAngle(vPicInt,90),0xB0); //build pic string
+                u8g.drawStr( 18, 52, vPicStr ); //draw pic value
+                if (selected == 1 && menu_current == 0){//vertical selected
+                  u8g.drawFrame(0,51,64,13);
+                }
+                
+                u8g.drawStr(64, 52, "H:");
+                sprintf (hPicStr, "%d(%d%c)", hPicInt, calcPicAngle(hPicInt,360),0xB0 );
+                u8g.drawStr( 82, 52, hPicStr );
+                if (selected == 1 && menu_current == 1){//horizontal selected
+                  u8g.drawFrame(64,51,64,13);
+                }
             }
          } break;
          case 4: {//start screen
