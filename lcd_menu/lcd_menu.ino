@@ -1,3 +1,29 @@
+/* TODO
+ *  done - test accelstepper by mikem
+ *  done - may need to accel slower or lower max speed from defaults given weight and drag
+ *    seems like plenty of torque
+ *    
+ *  done - build calibration of vertical via end stop
+ *    measure to check location for accuracy, might need to approach twice, 2nd time slower like 3dp calibration
+ *    
+ *  manually move steppers with manual mode
+ *  calculate each picture location in steps
+ *  done - set speed and accel, use blocking runToPosition to get to location
+ *  test TRS focus and shutter command
+ *    delay set pre picture wait time
+ *    send picture command
+ *    delay set post picture wait time
+ *  go to next location, until done with horizontal
+ *  calculate if continuing CW or unwinding ccw is closer, reset horizontal to 0 or 360 and call it new 0 step position
+ *    move vertical height and loop again until complete.
+ * 
+ * might need to add 'shutter' menu
+ * -wait time before picture (machine settle time, vhigh for macro)
+ * -wait time after picture (long exposure)
+ * -autofocus = ON/OFF
+ * -BACK
+ */
+
 #include <SPI.h>
 #include <RotaryEncoder.h> //ManageLibraries > RotaryEncoder by Matthias Hertel
 //#include "U8g2lib.h" //ManageLibraries > U8g2
@@ -34,15 +60,15 @@ int okReleased = 0;
 
 int selected = 0;
 
-char vAngleStr[16];                         //Char array to store Vertical Angle as a string 
-char hAngleStr[16];                         //Char array to store Horizontal Angle as a string
-int vAngleInt = 0;
-int hAngleInt = 0;
+char vAngleStr[16];   //Char array to store Vertical Angle as a string 
+char hAngleStr[16];   //Char array to store Horizontal Angle as a string
+int vAngleInt = 0;    //manually set vertical angle number
+int hAngleInt = 0;    //manually set horizontal angle number
 
-char vPicStr[16];                         //Char array to store Vertical Pictures as a string 
-char hPicStr[16];                         //Char array to store Horizontal Pictures as a string
-int vPicInt = 0;
-int hPicInt = 0;
+char vPicStr[16];   //Char array to store Vertical Pictures as a string 
+char hPicStr[16];   //Char array to store Horizontal Pictures as a string
+int vPicInt = 0;    //number of vertical pics
+int hPicInt = 0;    //number of horizontal pics
 
 //https://forum.arduino.cc/index.php?topic=151669.0
 
@@ -80,6 +106,46 @@ const uint8_t scappcam_bitmap[] PROGMEM = {
   0xff, 0xff, 0x7f, 0xff, 
   0xff, 0xff, 0xff, 0xff, 
 };
+
+//Stepper defines
+#define E0_STEP 26 //Digital 26
+#define E0_DIR 28
+#define E0_EN 24
+
+#define E1_STEP 36
+#define E1_DIR 34
+#define E1_EN 30
+
+#define X_STEP 54 //A0
+#define X_DIR 55 //A1
+#define X_EN 38
+
+#define Y_STEP 60 //A6
+#define Y_DIR 61 //A7
+#define Y_EN 56 //A2
+
+#define Z_STEP 46
+#define Z_DIR 48
+#define Z_EN 62 //A8?
+
+//endstop defines
+#define X_MIN           3
+#define X_MAX           2
+
+#define Y_MIN          14
+#define Y_MAX          15
+
+#define Z_MIN          18
+#define Z_MAX          19
+
+//other RAMPS defines
+#define LED_PIN            13
+#define FAN_PIN            9
+#define HEATER_0_PIN       10
+#define HEATER_1_PIN       8
+#define TEMP_0_PIN          13   
+#define TEMP_1_PIN          14
+//use heated bed or hot end or fan as light controller?
 
 void setup() {    
     Serial.begin(9600);
