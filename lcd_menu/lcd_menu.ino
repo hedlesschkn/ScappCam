@@ -78,6 +78,7 @@ int hPicInt = 0;    //number of horizontal pics
 
 char afterPicWaitStr[16];   //Char array to store post pic delay 
 int afterPicWaitInt = 0;    //number in ms for post pic delay
+bool autoFocus = HIGH;
 
 
 //https://forum.arduino.cc/index.php?topic=151669.0
@@ -154,8 +155,8 @@ const uint8_t scappcam_bitmap[] PROGMEM = {
 #define FAN_PIN            9
 #define HEATER_0_PIN       10
 #define HEATER_1_PIN       8
-#define TEMP_0_PIN          13   
-#define TEMP_1_PIN          14
+#define TEMP_0_PIN         13   
+#define TEMP_1_PIN         14
 //use heated bed or hot end or fan as light controller?
 
 // Define a stepper and the pins it will use
@@ -284,6 +285,7 @@ void loop() {
                             vAngleInt--;
                             drawScreen();
                             //call move steppers funtion
+                            Vstepper.runToNewPosition(angleToSteps(vAngleInt));
                         }
                       }
                       if (cw==1) {       
@@ -291,6 +293,7 @@ void loop() {
                             vAngleInt++;
                             drawScreen();
                             //call move steppers function
+                            Vstepper.runToNewPosition(angleToSteps(vAngleInt));
                         }
                       }
                     } //while
@@ -312,6 +315,7 @@ void loop() {
                             hAngleInt--;
                             drawScreen();
                             //call move steppers funtion
+                            Hstepper.runToNewPosition(angleToSteps(hAngleInt));
                         }
                       }
                       if (cw==1) {       
@@ -319,6 +323,7 @@ void loop() {
                             hAngleInt++;
                             drawScreen();
                             //call move steppers function
+                            Hstepper.runToNewPosition(angleToSteps(hAngleInt));
                         }
                       }
                     } //while
@@ -398,7 +403,25 @@ void loop() {
                 Serial.println("camera settings");
                 switch (menu_current){
                   case 0: //auto focus enable/disable
-                    screen = 0;
+                    Serial.println("focus enable/disable");
+                    okReleased = 0;
+                    selected = 1;
+                    Serial.println("selected set to 1");
+                    drawScreen();
+                    while(okReleased != 1){
+                      readEncoder();
+                      if (ccw==1) {
+                        autoFocus = LOW;
+                        drawScreen();
+                        }
+                      else if (cw==1) {       
+                        autoFocus = HIGH;
+                        drawScreen();
+                      }
+                    } //while
+                    Serial.println("left after picture wait time");
+                    selected = 0;
+                    Serial.println("selected set to 0");
                     break;
                   case 1: //after picture wait time
                     Serial.println("after picture wait time");
@@ -410,13 +433,13 @@ void loop() {
                       readEncoder();
                       if (ccw==1) {
                         if (afterPicWaitInt > 0) { //time in ms
-                            afterPicWaitInt--;
+                            afterPicWaitInt-=10; //subtract 10ms per notch
                             drawScreen();
                         }
                       }
                       if (cw==1) {       
                         if (afterPicWaitInt < 20000) {
-                            afterPicWaitInt++;
+                            afterPicWaitInt+=10; //add 10ms per notch
                             drawScreen();
                         }
                       }
@@ -653,8 +676,10 @@ void whatToDraw() {
                     u8g.setDefaultBackgroundColor();
                 }
                 u8g.drawStr(d, i*h, menu_strings[i]);
+                
                 //draw variables
                 u8g.setDefaultForegroundColor();
+                
                 u8g.drawStr(0, 52, "V:"); //draw V
                 sprintf (vPicStr, "%d(%d%c)", vPicInt, calcPicAngle(vPicInt,90),0xB0); //build pic string
                 u8g.drawStr( 18, 52, vPicStr ); //draw pic value
@@ -670,7 +695,7 @@ void whatToDraw() {
                 }
             }
          } break;
-         case 4: {//camera settings screen
+         case 4: {//camera settings screen (afterPicWaitInt)
             menu_max=2;
             const char *menu_strings[3] = { "Autofocus", "Wait Time", "Back" };
 
@@ -684,6 +709,28 @@ void whatToDraw() {
                     u8g.setDefaultBackgroundColor();
                 }
                 u8g.drawStr(d, i*h, menu_strings[i]);
+
+                //draw variables
+                u8g.setDefaultForegroundColor();
+
+                //AF (y/n)
+                if (autoFocus == HIGH){
+                  u8g.drawStr( 8, 52, "enabled" ); //draw pic value
+                }
+                else{
+                  u8g.drawStr( 0, 52, "disabled" ); //draw pic value
+                }
+                
+                if (selected == 1 && menu_current == 0){//vertical selected
+                  u8g.drawFrame(0,51,64,13);
+                }
+
+                //Wait time (ms)
+                sprintf (afterPicWaitStr, "%d ms", afterPicWaitInt); //build pic string
+                u8g.drawStr( 72, 52, afterPicWaitStr );
+                if (selected == 1 && menu_current == 1){//horizontal selected
+                  u8g.drawFrame(64,51,64,13);
+                }
             }
          } break;
 
