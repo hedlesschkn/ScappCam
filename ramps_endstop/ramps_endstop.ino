@@ -1,3 +1,8 @@
+/*
+ * this just shows the value of an endstop to test wiring. it can be pressed and released
+ * and shows that status via serial output
+ */
+
 //endstop defines
 #define end_Xmin 3
 #define end_Xmax 2

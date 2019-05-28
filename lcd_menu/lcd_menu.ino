@@ -24,11 +24,17 @@
  * -BACK
  */
 
+ //WIRING
+ //vertical uses Z axis
+ //horizontal uses Y axis
+ //vertical endstop plugs into Z_min (xmin,xmax,ymin,ymax,zmin,zmax)
+
 #include <SPI.h>
 #include <RotaryEncoder.h> //ManageLibraries > RotaryEncoder by Matthias Hertel
 //#include "U8g2lib.h" //ManageLibraries > U8g2
 #include <U8glib.h>
-#include <Wire.h> 
+#include <Wire.h>
+#include <AccelStepper.h>
 
 #define DOGLCD_CS       16
 #define DOGLCD_MOSI     17
@@ -48,7 +54,7 @@ U8GLIB_ST7920_128X64_1X u8g(DOGLCD_SCK, DOGLCD_MOSI, DOGLCD_CS);
 
 uint8_t screen = 0; //start on splash screen
 uint8_t menu_current = 0;
-uint8_t menu_max = 2;
+uint8_t menu_max;
 
 RotaryEncoder encoder(31, 33);
 int newPos;
@@ -69,6 +75,10 @@ char vPicStr[16];   //Char array to store Vertical Pictures as a string
 char hPicStr[16];   //Char array to store Horizontal Pictures as a string
 int vPicInt = 0;    //number of vertical pics
 int hPicInt = 0;    //number of horizontal pics
+
+char afterPicWaitStr[16];   //Char array to store post pic delay 
+int afterPicWaitInt = 0;    //number in ms for post pic delay
+
 
 //https://forum.arduino.cc/index.php?topic=151669.0
 
@@ -129,6 +139,7 @@ const uint8_t scappcam_bitmap[] PROGMEM = {
 #define Z_EN 62 //A8?
 
 //endstop defines
+//xmin,xmax,ymin,ymax,zmin,zmax
 #define X_MIN           3
 #define X_MAX           2
 
@@ -147,6 +158,14 @@ const uint8_t scappcam_bitmap[] PROGMEM = {
 #define TEMP_1_PIN          14
 //use heated bed or hot end or fan as light controller?
 
+// Define a stepper and the pins it will use
+//AccelStepper stepper; // Defaults to AccelStepper::FULL4WIRE (4 pins) on 2, 3, 4, 5
+AccelStepper Vstepper(AccelStepper::DRIVER, Z_STEP, Z_DIR); //vertical uses Z axis
+AccelStepper Hstepper(AccelStepper::DRIVER, Y_STEP, Y_DIR); //horizontal uses Y axis
+//AccelStepper stepper(1,Z_STEP,Z_DIR);
+
+long initial_homing=0;
+
 void setup() {    
     Serial.begin(9600);
     Serial.println("ScappCam");
@@ -156,10 +175,25 @@ void setup() {
 
     pinMode(BTN_ENC, INPUT);              // Set BTN_ENC as an unput, encoder button
     digitalWrite(BTN_ENC, HIGH);          // turn on pullup resistors
+
+    //splash screen calibration
+    screen = 0; //set as splash screen
+    setStepperDefaults();
+    pinMode(Z_STEP, OUTPUT);
+    pinMode(Z_DIR, OUTPUT);
+    pinMode(Z_EN, OUTPUT);
+    digitalWrite(Z_EN, LOW);
+
+    pinMode(Y_STEP, OUTPUT);
+    pinMode(Y_DIR, OUTPUT);
+    pinMode(Y_EN, OUTPUT);
+    digitalWrite(Y_EN, LOW);
     drawScreen();
     delay(1000); //delay for splashscreen
-    screen = 1;
-    drawScreen();
+    homeStepper(Vstepper,Z_MIN);
+    delay(1000); //delay for splashscreen
+    screen = 1; //set screen as main menu
+    drawScreen(); //draw new screen
 } //end setup
 
 void loop() {
@@ -211,18 +245,26 @@ void loop() {
           Serial.println(okReleased);
             switch (screen){
               case 0: //splash screen
-                screen = 1; //goto root
+                //screen = 1; //goto root
+                //let the splash screen play out because it's the calibration screen now
                 break; //case 0 break
               case 1: //root screen
                 switch (menu_current){
                   case 0: //manual angle
+                    menu_current = 0; //reset cursor
                     screen = 2; //goto manual angle screen
                     break;
                   case 1: //pictures
+                    menu_current = 0; //reset cursor
                     screen = 3; //goto pictures screen
                     break;
-                  case 2: //start
-                    screen = 4; //goto start screen
+                  case 2: //camera
+                    menu_current = 0; //reset cursor
+                    screen = 4; //goto camera settings screen
+                    break;
+                  case 3: //start
+                    menu_current = 0; //reset cursor
+                    screen = 5; //goto start screen
                     break;
                 }
                 break; //case 1 break
@@ -285,12 +327,13 @@ void loop() {
                     Serial.println("selected set to 0");
                     break;
                   case 2: //Back
+                    menu_current = 0; //reset cursor
                     screen = 1; //goto root screen
                     Serial.println("manual BACK");
                     break;
                 }
                 break; //case 2 break
-              case 3: //pictures screen
+              case 3: //pictures screen (auto angle settings)
                 switch (menu_current){
                   case 0: //number vertical
                     Serial.println("vertical pictures");
@@ -345,12 +388,50 @@ void loop() {
                     Serial.println("selected set to 0");
                     break;
                   case 2: //Back
+                    menu_current = 1; //reset cursor
                     screen = 1; //goto root screen
                     Serial.println("pictures BACK");
                     break;
                 }
                 break; //case 3 break
-              case 4: //start screen
+              case 4: //camera settings screen
+                Serial.println("camera settings");
+                switch (menu_current){
+                  case 0: //auto focus enable/disable
+                    screen = 0;
+                    break;
+                  case 1: //after picture wait time
+                    Serial.println("after picture wait time");
+                    okReleased = 0;
+                    selected = 1;
+                    Serial.println("selected set to 1");
+                    drawScreen();
+                    while(okReleased != 1){
+                      readEncoder();
+                      if (ccw==1) {
+                        if (afterPicWaitInt > 0) { //time in ms
+                            afterPicWaitInt--;
+                            drawScreen();
+                        }
+                      }
+                      if (cw==1) {       
+                        if (afterPicWaitInt < 20000) {
+                            afterPicWaitInt++;
+                            drawScreen();
+                        }
+                      }
+                    } //while
+                    Serial.println("left after picture wait time");
+                    selected = 0;
+                    Serial.println("selected set to 0");
+                    break;
+                  case 2: //Back
+                    menu_current = 2; //reset cursor
+                    screen = 1; //goto root screen
+                    break;
+                }
+                break; //case 4 break
+              case 5: //start screen
                 Serial.println("welcome to the start screen!");
                 switch (menu_current){
                   case 0: //credits
@@ -362,15 +443,62 @@ void loop() {
                     //check for kill button every loop
                     break;
                   case 2: //Back
+                    menu_current = 3; //reset cursor
                     screen = 1; //goto root screen
                     break;
                 }
-                break; //case 4 break
+                break; //case 5 break
             }
             drawScreen();
             Serial.println("selection switch end");
           }//end if button pressed
 } //end loop
+
+void homeStepper(AccelStepper myStepper, int EndStopPin){
+//  https://www.brainy-bits.com/setting-stepper-motors-home-position-using-accelstepper/
+  myStepper.setMaxSpeed(100.0); //slow the stepper down
+  myStepper.setAcceleration(100.0); //slow the acceleration down
+  delay(5); //wait for driver to wake up
+  Serial.println("Start Homing...");
+  while (digitalRead(EndStopPin)){ //move CW until switch is pressed
+    myStepper.moveTo(initial_homing);
+    myStepper.run();
+    initial_homing--;
+    delay(5);
+  }
+  myStepper.setCurrentPosition(0); //set current position as zero
+  myStepper.setMaxSpeed(50.0); //slow the stepper down
+  myStepper.setAcceleration(50.0); //slow the acceleration down
+  initial_homing=0;
+
+  while (!digitalRead(EndStopPin)){ //move CCW slowly until switch is released
+    myStepper.moveTo(initial_homing);
+    myStepper.run();
+    initial_homing++;
+    delay(5);
+  }
+  myStepper.setCurrentPosition(0);
+  Serial.println("Homing Complete!");
+  setStepperDefaults();
+}
+
+void setStepperDefaults(){
+    Vstepper.setMaxSpeed(200.0); //could reasonably up these to 1000/1000 but lets start with 200/100 for now
+    Vstepper.setAcceleration(100.0);
+    Hstepper.setMaxSpeed(200.0);
+    Hstepper.setAcceleration(100.0);
+}
+
+int angleToSteps(int angle){
+  #define gearTeeth 540.0 //number of teeth on the device large gear (assuming gear was full in case of arch)
+  #define stepperTeeth 13.0 //number of teeth on the stepper's gear
+  #define stepper360 200.0 //number of steps for a full stepper rotation
+  int steps = 0;
+  steps = ( (gearTeeth/stepperTeeth)*(stepper360/360)*angle);
+  //Serial.print("steps: ");
+  //Serial.println(steps);
+  return steps;
+}
 
 void readEncoder(){
   static int pos = 0; //local
@@ -452,21 +580,23 @@ void whatToDraw() {
     
     switch (screen) {
         case 0: { //splash screen
+            menu_max=0;
             u8g.drawStr(32,16,"ScappCam");
-            u8g.drawStr(32,32,"Tim Hebert");
+            u8g.drawStr(32,32,"Calibrating Vertical Carriage...");
             u8g.drawBitmapP( 0, 16, 4, 32, scappcam_bitmap); //x,y,width/8,height
             //u8g.drawFrame(0,51,64,13);
             //press OK to calibrate
         } break;
         case 1: { //root screen
-            const char *menu_strings[3] = { "Manual Angle", "Pictures", "Start" };
+            menu_max=3;
+            const char *menu_strings[4] = { "Manual Angle", "Pictures", "Camera", "Start" };
 
             u8g.setDefaultForegroundColor();
             u8g.drawStr(8, 0, "Home Screen");
             u8g.drawHLine(0,h-1,128);
 
             //draw menu items
-            for( i = 0; i < 3; i++ ) {
+            for( i = 0; i < 4; i++ ) {
                 //d = (w-u8g.getStrWidth(menu_strings[i]))/2; //center text
                 d = 8; //left justified 8px
                 u8g.setDefaultForegroundColor();
@@ -479,6 +609,7 @@ void whatToDraw() {
          } break;
 
          case 2: { //Manual Angle sub menu
+            menu_max=2;
             const char *menu_strings[3] = { "Vertical Angle", "Horizontal Angle", "Back" };
              for( i = 0; i < 3; i++ ) {
                 //d = (w-u8g.getStrWidth(menu_strings[i]))/2; //center text
@@ -509,6 +640,7 @@ void whatToDraw() {
          } break;
 
          case 3: {//pictures sub screen
+            menu_max=2;
             const char *menu_strings[3] = { "Vertical Pics", "Horizontal Pics", "Back" };
 
              for( i = 0; i < 3; i++ ) {
@@ -538,7 +670,25 @@ void whatToDraw() {
                 }
             }
          } break;
-         case 4: {//start screen
+         case 4: {//camera settings screen
+            menu_max=2;
+            const char *menu_strings[3] = { "Autofocus", "Wait Time", "Back" };
+
+             for( i = 0; i < 3; i++ ) {
+                //d = (w-u8g.getStrWidth(menu_strings[i]))/2; //center text
+                d = 8; //left justified
+                u8g.setDefaultForegroundColor();
+                if ( i == menu_current ) {
+                    u8g.drawBox(0, i*h+1, w, h); //filled box
+                    //u8g.drawFrame(0, i*h+1, w, h); //outline box (if disabling foreground/background color)
+                    u8g.setDefaultBackgroundColor();
+                }
+                u8g.drawStr(d, i*h, menu_strings[i]);
+            }
+         } break;
+
+         case 5: {//start screen
+            menu_max=2;
             const char *menu_strings[3] = { "Credits", "Start", "Back" };
 
              for( i = 0; i < 3; i++ ) {
