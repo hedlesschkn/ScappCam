@@ -46,6 +46,7 @@
 #define SDSS            53
 #define BEEPER_PIN      37
 #define KILL_PIN        41
+//interupt pins mega 2560 = 2, 3, 18, 19, 20, 21
 
 //U8GLIB_SSD1351_128X128_332 u8g(8, 9, 7);
 // Screen
@@ -66,6 +67,9 @@ int okReleased = 0;
 
 int selected = 0;
 
+bool estop = LOW;
+int turn;
+
 char vAngleStr[16];   //Char array to store Vertical Angle as a string 
 char hAngleStr[16];   //Char array to store Horizontal Angle as a string
 int vAngleInt = 0;    //manually set vertical angle number
@@ -76,9 +80,22 @@ char hPicStr[16];   //Char array to store Horizontal Pictures as a string
 int vPicInt = 0;    //number of vertical pics
 int hPicInt = 0;    //number of horizontal pics
 
+//camera variables
+const int prePicTime = 1000;      //machine settle time before taking pic
+const int shutterLength = 500;     //time to hold the shutter button down
+const int focusLength = 1500;     //time to hold the focus button down
+
 char afterPicWaitStr[16];   //Char array to store post pic delay 
-int afterPicWaitInt = 0;    //number in ms for post pic delay
+int afterPicWaitInt = 1000;    //number in ms for post pic delay
 bool autoFocus = HIGH;
+
+//servo defines
+#define servo1 11
+#define servo2 6
+#define servo3 5
+#define servo4 4
+const int focusPin = servo1;
+const int shutterPin = servo2;
 
 
 //https://forum.arduino.cc/index.php?topic=151669.0
@@ -174,9 +191,16 @@ void setup() {
     u8g.setFont(u8g_font_unifont); //10 pixel height
 //  u8g.setDefaultForegroundColor();
 
+    pinMode(KILL_PIN, INPUT);
+    digitalWrite(KILL_PIN, HIGH);         // turn on pullup resistors
+    
     pinMode(BTN_ENC, INPUT);              // Set BTN_ENC as an unput, encoder button
     digitalWrite(BTN_ENC, HIGH);          // turn on pullup resistors
+    
 
+    pinMode(focusPin,OUTPUT);
+    pinMode(shutterPin,OUTPUT);
+    
     //splash screen calibration
     screen = 0; //set as splash screen
     setStepperDefaults();
@@ -200,6 +224,8 @@ void setup() {
 void loop() {
 //get encoder & button value
   readEncoder();
+  Vstepper.run(); //runs steppers even after leaving menu
+  Hstepper.run();
 
   //test output
   if(okPressed){
@@ -214,6 +240,9 @@ void loop() {
   if (cw==1){
     Serial.println("Clockwise");
   }
+
+  //Vstepper.run();
+  //Hstepper.run();
 
   //menu system
     /*
@@ -280,12 +309,14 @@ void loop() {
                     drawScreen();
                     while(okReleased != 1){
                       readEncoder();
+                      Vstepper.run();
                       if (ccw==1) {
                         if (vAngleInt > 0) {
                             vAngleInt--;
                             drawScreen();
                             //call move steppers funtion
-                            Vstepper.runToNewPosition(angleToSteps(vAngleInt));
+                            //Vstepper.runToNewPosition(angleToSteps(vAngleInt)); //blocking
+                            Vstepper.moveTo(angleToSteps(vAngleInt));
                         }
                       }
                       if (cw==1) {       
@@ -293,7 +324,8 @@ void loop() {
                             vAngleInt++;
                             drawScreen();
                             //call move steppers function
-                            Vstepper.runToNewPosition(angleToSteps(vAngleInt));
+                            //Vstepper.runToNewPosition(angleToSteps(vAngleInt));
+                            Vstepper.moveTo(angleToSteps(vAngleInt));
                         }
                       }
                     } //while
@@ -310,12 +342,13 @@ void loop() {
                     drawScreen();
                     while(okReleased != 1){
                       readEncoder();
+                      Hstepper.run();
                       if (ccw==1) {
                         if (hAngleInt > -360) {
                             hAngleInt--;
                             drawScreen();
                             //call move steppers funtion
-                            Hstepper.runToNewPosition(angleToSteps(hAngleInt));
+                            Hstepper.moveTo(angleToSteps(hAngleInt));
                         }
                       }
                       if (cw==1) {       
@@ -323,7 +356,7 @@ void loop() {
                             hAngleInt++;
                             drawScreen();
                             //call move steppers function
-                            Hstepper.runToNewPosition(angleToSteps(hAngleInt));
+                            Hstepper.moveTo(angleToSteps(hAngleInt));
                         }
                       }
                     } //while
@@ -419,7 +452,6 @@ void loop() {
                         drawScreen();
                       }
                     } //while
-                    Serial.println("left after picture wait time");
                     selected = 0;
                     Serial.println("selected set to 0");
                     break;
@@ -451,23 +483,32 @@ void loop() {
                   case 2: //Back
                     menu_current = 2; //reset cursor
                     screen = 1; //goto root screen
+                    Serial.println("camera BACK");
                     break;
                 }
                 break; //case 4 break
               case 5: //start screen
                 Serial.println("welcome to the start screen!");
                 switch (menu_current){
-                  case 0: //credits
-                    screen = 0;
-                    break;
-                  case 1: //start
-                    //***do start stuff
+                  case 0: //start
                     Serial.println("Starting!");
-                    //check for kill button every loop
+                    //Vpics does nothing
+                    //Hpics is /360 # pics starting at 0
+
+                    Hstepper.setCurrentPosition(0); //set current position as zero
+                    turn = angleToSteps(360/hPicInt);
+                    for (int i=0; i<hPicInt;i++){
+                      takePic();
+                      autoMove(turn);
+                      Hstepper.setCurrentPosition(0); //set current position as zero
+                    }
+                    autoMove( 360-(hPicInt*turn) );
+                    Hstepper.setCurrentPosition(0); //set current position as zero.
                     break;
-                  case 2: //Back
+                  case 1: //Back
                     menu_current = 3; //reset cursor
                     screen = 1; //goto root screen
+                    Serial.println("start BACK");
                     break;
                 }
                 break; //case 5 break
@@ -475,7 +516,49 @@ void loop() {
             drawScreen();
             Serial.println("selection switch end");
           }//end if button pressed
+  //Hstepper.run();
 } //end loop
+
+void takePic(){
+  //camera variables
+//const int prePicTime = 1000;      //machine settle time before taking pic
+//const int shutterLength = 500;     //time to hold the shutter button down
+//const int focusLength = 1500;     //time to hold the focus button down
+//
+//char afterPicWaitStr[16];   //Char array to store post pic delay 
+//int afterPicWaitInt = 0;    //number in ms for post pic delay
+//bool autoFocus = HIGH;
+
+  delay(prePicTime);
+  if (autoFocus == HIGH){
+    Serial.println("focusing");
+    digitalWrite(focusPin,HIGH);    //press focus button
+    delay(focusLength);           //stay pressed for focus length
+    digitalWrite(focusPin,LOW);     // release focus button
+    Serial.println("focused");
+    delay(50);
+  }
+  Serial.println("taking picture");
+  digitalWrite(shutterPin,HIGH);  //press shutter button
+  delay(shutterLength);           //stay pressed for shutter length
+  digitalWrite(shutterPin,LOW);   //release shutter button
+  Serial.println("picture taken");
+  delay(afterPicWaitInt);         //wait for exposure time to finish
+}
+
+void autoMove(int steps){
+  //check for kill button every loop
+  setStepperDefaults();
+  estop = LOW;
+  Hstepper.moveTo(steps);
+  while(Hstepper.distanceToGo() > 0){
+    Hstepper.run();
+    if(digitalRead(KILL_PIN) == LOW){
+      estop = HIGH;
+    }
+  }
+  estop = LOW;
+}
 
 void homeStepper(AccelStepper myStepper, int EndStopPin){
 //  https://www.brainy-bits.com/setting-stepper-motors-home-position-using-accelstepper/
@@ -586,7 +669,7 @@ int calcPicAngle(int numPics, int max_angle){
   }
   else{
     int tmp;
-    tmp = (max_angle/(numPics +1));
+    tmp = (max_angle/(numPics));
     //Serial.println(tmp);
     return(tmp);
   }  
@@ -603,7 +686,7 @@ void whatToDraw() {
     
     switch (screen) {
         case 0: { //splash screen
-            menu_max=0;
+            //menu_max=0;
             u8g.drawStr(32,16,"ScappCam");
             u8g.drawStr(32,32,"Calibrating Vertical Carriage...");
             u8g.drawBitmapP( 0, 16, 4, 32, scappcam_bitmap); //x,y,width/8,height
@@ -612,7 +695,7 @@ void whatToDraw() {
         } break;
         case 1: { //root screen
             menu_max=3;
-            const char *menu_strings[4] = { "Manual Angle", "Pictures", "Camera", "Start" };
+            const char *main_menu[4] = { "Manual Angle", "Pictures", "Camera", "Start" };
 
             u8g.setDefaultForegroundColor();
             u8g.drawStr(8, 0, "Home Screen");
@@ -627,14 +710,16 @@ void whatToDraw() {
                     u8g.drawBox(0, (i+1)*h+1, w, h); //filled box cleaner location
                     u8g.setDefaultBackgroundColor();
                 }
-                u8g.drawStr(d, (i+1)*h+1, menu_strings[i]);
+                u8g.drawStr(d, (i+1)*h+1, main_menu[i]);
             }
          } break;
 
          case 2: { //Manual Angle sub menu
             menu_max=2;
-            const char *menu_strings[3] = { "Vertical Angle", "Horizontal Angle", "Back" };
+            const char *angle_menu[3] = { "Vertical Angle", "Horizontal Angle", "Back" };
              for( i = 0; i < 3; i++ ) {
+                Vstepper.run(); //fixes weird choppy stepper movement on manual mode
+                Hstepper.run();
                 //d = (w-u8g.getStrWidth(menu_strings[i]))/2; //center text
                 d = 8; //left justified
                 u8g.setDefaultForegroundColor();
@@ -643,7 +728,7 @@ void whatToDraw() {
                     //u8g.drawFrame(0, i*h+1, w, h); //outline box (if disabling foreground/background color)
                     u8g.setDefaultBackgroundColor();
                 }
-                u8g.drawStr(d, i*h, menu_strings[i]);
+                u8g.drawStr(d, i*h, angle_menu[i]);
             }
             //draw variables
             u8g.setDefaultForegroundColor();
@@ -664,7 +749,7 @@ void whatToDraw() {
 
          case 3: {//pictures sub screen
             menu_max=2;
-            const char *menu_strings[3] = { "Vertical Pics", "Horizontal Pics", "Back" };
+            const char *pics_menu[3] = { "Vertical Pics", "Horizontal Pics", "Back" };
 
              for( i = 0; i < 3; i++ ) {
                 //d = (w-u8g.getStrWidth(menu_strings[i]))/2; //center text
@@ -675,7 +760,7 @@ void whatToDraw() {
                     //u8g.drawFrame(0, i*h+1, w, h); //outline box (if disabling foreground/background color)
                     u8g.setDefaultBackgroundColor();
                 }
-                u8g.drawStr(d, i*h, menu_strings[i]);
+                u8g.drawStr(d, i*h, pics_menu[i]);
                 
                 //draw variables
                 u8g.setDefaultForegroundColor();
@@ -697,7 +782,7 @@ void whatToDraw() {
          } break;
          case 4: {//camera settings screen (afterPicWaitInt)
             menu_max=2;
-            const char *menu_strings[3] = { "Autofocus", "Wait Time", "Back" };
+            const char *camera_menu[3] = { "Autofocus", "Wait Time", "Back" };
 
              for( i = 0; i < 3; i++ ) {
                 //d = (w-u8g.getStrWidth(menu_strings[i]))/2; //center text
@@ -708,7 +793,7 @@ void whatToDraw() {
                     //u8g.drawFrame(0, i*h+1, w, h); //outline box (if disabling foreground/background color)
                     u8g.setDefaultBackgroundColor();
                 }
-                u8g.drawStr(d, i*h, menu_strings[i]);
+                u8g.drawStr(d, i*h, camera_menu[i]);
 
                 //draw variables
                 u8g.setDefaultForegroundColor();
@@ -735,8 +820,8 @@ void whatToDraw() {
          } break;
 
          case 5: {//start screen
-            menu_max=2;
-            const char *menu_strings[3] = { "Credits", "Start", "Back" };
+            menu_max=1;
+            const char *start_menu[2] = { "Start", "Back" };
 
              for( i = 0; i < 3; i++ ) {
                 //d = (w-u8g.getStrWidth(menu_strings[i]))/2; //center text
@@ -747,7 +832,7 @@ void whatToDraw() {
                     //u8g.drawFrame(0, i*h+1, w, h); //outline box (if disabling foreground/background color)
                     u8g.setDefaultBackgroundColor();
                 }
-                u8g.drawStr(d, i*h, menu_strings[i]);
+                u8g.drawStr(d, i*h, start_menu[i]);
             }
          } break;
 
