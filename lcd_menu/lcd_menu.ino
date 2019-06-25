@@ -78,7 +78,7 @@ int hAngleInt = 0;    //manually set horizontal angle number
 char vPicStr[16];   //Char array to store Vertical Pictures as a string 
 char hPicStr[16];   //Char array to store Horizontal Pictures as a string
 int vPicInt = 0;    //number of vertical pics
-int hPicInt = 0;    //number of horizontal pics
+int hPicInt = 30;    //number of horizontal pics
 
 //camera variables
 const int prePicTime = 1000;      //machine settle time before taking pic
@@ -87,7 +87,7 @@ const int focusLength = 1500;     //time to hold the focus button down
 
 char afterPicWaitStr[16];   //Char array to store post pic delay 
 int afterPicWaitInt = 1000;    //number in ms for post pic delay
-bool autoFocus = HIGH;
+bool autoFocus = LOW;
 
 //servo defines
 #define servo1 11
@@ -178,8 +178,8 @@ const uint8_t scappcam_bitmap[] PROGMEM = {
 
 // Define a stepper and the pins it will use
 //AccelStepper stepper; // Defaults to AccelStepper::FULL4WIRE (4 pins) on 2, 3, 4, 5
-AccelStepper Vstepper(AccelStepper::DRIVER, Z_STEP, Z_DIR); //vertical uses Z axis
-AccelStepper Hstepper(AccelStepper::DRIVER, Y_STEP, Y_DIR); //horizontal uses Y axis
+AccelStepper Vstepper(AccelStepper::DRIVER, X_STEP, X_DIR); //vertical uses X axis
+AccelStepper Hstepper(AccelStepper::DRIVER, Z_STEP, Z_DIR); //horizontal uses Z axis because double output
 //AccelStepper stepper(1,Z_STEP,Z_DIR);
 
 long initial_homing=0;
@@ -209,13 +209,13 @@ void setup() {
     pinMode(Z_EN, OUTPUT);
     digitalWrite(Z_EN, LOW);
 
-    pinMode(Y_STEP, OUTPUT);
-    pinMode(Y_DIR, OUTPUT);
-    pinMode(Y_EN, OUTPUT);
-    digitalWrite(Y_EN, LOW);
+    pinMode(X_STEP, OUTPUT);
+    pinMode(X_DIR, OUTPUT);
+    pinMode(X_EN, OUTPUT);
+    digitalWrite(X_EN, LOW);
     drawScreen();
     delay(1000); //delay for splashscreen
-    homeStepper(Vstepper,Z_MIN);
+    homeStepper(Vstepper,X_MIN);
     delay(1000); //delay for splashscreen
     screen = 1; //set screen as main menu
     drawScreen(); //draw new screen
