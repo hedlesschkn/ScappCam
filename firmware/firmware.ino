@@ -496,7 +496,8 @@ void loop() {
                     //Hpics is /360 # pics starting at 0
 
                     Hstepper.setCurrentPosition(0); //set current position as zero
-                    turn = angleToSteps(360/hPicInt);
+                    turn = PicsToSteps(hPicInt);
+                    //turn = angleToSteps(360/hPicInt); //rounding errors (100 pics = 3 deg per pic * 100 = 300 deg total, not 360)
                     for (int i=0; i<hPicInt;i++){
                       takePic();
                       autoMove(turn);
@@ -594,13 +595,27 @@ void setStepperDefaults(){
     Hstepper.setMaxSpeed(200.0);
     Hstepper.setAcceleration(100.0);
 }
+int PicsToSteps(int numPics){
+  #define gearTeeth 540.0 //number of teeth on the device large gear (assuming gear was full in case of arch)
+  #define stepperTeeth 13.0 //number of teeth on the stepper's gear
+  #define stepper360 200.0 //number of steps for a full stepper rotation
+  int steps = 0;
+  // 540/13 = 41.5 full rotations of the stepper to get one full rotation of the ring gear
+  // 200 steps per rotation of stepper
+  // 41.5*200 = total stpes per full rotation of 360deg
+  // 41.5*200/numpics = steps per pic
+  steps = ( (gearTeeth/stepperTeeth)*stepper360/numPics );
+  return steps;
+  //4 pics = 90 deg per pic
+  //41.5*200/4 = 
+}
 
 int angleToSteps(int angle){
   #define gearTeeth 540.0 //number of teeth on the device large gear (assuming gear was full in case of arch)
   #define stepperTeeth 13.0 //number of teeth on the stepper's gear
   #define stepper360 200.0 //number of steps for a full stepper rotation
   int steps = 0;
-  steps = ( (gearTeeth/stepperTeeth)*(stepper360/360)*angle);
+  steps = ( (gearTeeth/stepperTeeth)*(stepper360)*angle);
   //Serial.print("steps: ");
   //Serial.println(steps);
   return steps;
@@ -688,7 +703,9 @@ void whatToDraw() {
         case 0: { //splash screen
             //menu_max=0;
             u8g.drawStr(32,16,"ScappCam");
-            u8g.drawStr(32,32,"V1.1");
+            u8g.drawStr(32,32,"V1.2");
+              //V1.1 = fixed start menu drawing artifacts
+              //V1.2 = fixed number of steps rounding issue
             u8g.drawBitmapP( 0, 16, 4, 32, scappcam_bitmap); //x,y,width/8,height
             //u8g.drawFrame(0,51,64,13);
             //press OK to calibrate
