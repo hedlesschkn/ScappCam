@@ -70,7 +70,7 @@ int selected = 0;
 bool estop = LOW;
 int turn;
 
-char vAngleStr[16];   //Char array to store Vertical Angle as a string 
+char vAngleStr[16];   //Char array to store Vertical Angle as a string
 char hAngleStr[16];   //Char array to store Horizontal Angle as a string
 int vAngleInt = 0;    //manually set vertical angle number
 int hAngleInt = 0;    //manually set horizontal angle number
@@ -465,13 +465,13 @@ void loop() {
                       readEncoder();
                       if (ccw==1) {
                         if (afterPicWaitInt > 0) { //time in ms
-                            afterPicWaitInt-=10; //subtract 10ms per notch
+                            afterPicWaitInt-=100; //subtract 100ms per notch
                             drawScreen();
                         }
                       }
                       if (cw==1) {       
                         if (afterPicWaitInt < 20000) {
-                            afterPicWaitInt+=10; //add 10ms per notch
+                            afterPicWaitInt+=100; //add 100ms per notch
                             drawScreen();
                         }
                       }
@@ -688,7 +688,7 @@ void whatToDraw() {
         case 0: { //splash screen
             //menu_max=0;
             u8g.drawStr(32,16,"ScappCam");
-            u8g.drawStr(32,32,"Calibrating Vertical Carriage...");
+            u8g.drawStr(32,32,"V1.1");
             u8g.drawBitmapP( 0, 16, 4, 32, scappcam_bitmap); //x,y,width/8,height
             //u8g.drawFrame(0,51,64,13);
             //press OK to calibrate
@@ -823,7 +823,7 @@ void whatToDraw() {
             menu_max=1;
             const char *start_menu[2] = { "Start", "Back" };
 
-             for( i = 0; i < 3; i++ ) {
+             for( i = 0; i < 2; i++ ) {
                 //d = (w-u8g.getStrWidth(menu_strings[i]))/2; //center text
                 d = 8; //left justified
                 u8g.setDefaultForegroundColor();
