@@ -67,7 +67,7 @@ int okReleased = 0;
 
 int selected = 0;
 
-bool estop = LOW;
+bool estop = LOW; //low is off, high is on
 int turn;
 
 char vAngleStr[16];   //Char array to store Vertical Angle as a string
@@ -499,12 +499,19 @@ void loop() {
                     turn = PicsToSteps(hPicInt);
                     //turn = angleToSteps(360/hPicInt); //rounding errors (100 pics = 3 deg per pic * 100 = 300 deg total, not 360)
                     for (int i=0; i<hPicInt;i++){
+                      if (estop == HIGH){
+                        Serial.println("estop high! break out of loop!");
+                        break; //break out of the for loop
+                      }
                       takePic();
                       autoMove(turn);
                       Hstepper.setCurrentPosition(0); //set current position as zero
                     }
-                    autoMove( 360-(hPicInt*turn) );
-                    Hstepper.setCurrentPosition(0); //set current position as zero.
+                    if (estop == LOW){
+                      autoMove( 360-(hPicInt*turn) ); //go back to 360 degrees when done
+                      Hstepper.setCurrentPosition(0); //set current position as zero.
+                    }
+                    exitestop();
                     break;
                   case 1: //Back
                     menu_current = 3; //reset cursor
@@ -550,18 +557,22 @@ void takePic(){
 void autoMove(int steps){
   //check for kill button every loop
   setStepperDefaults();
-  estop = LOW;
   Hstepper.moveTo(steps);
   while(Hstepper.distanceToGo() > 0){
     Hstepper.run();
-    if(digitalRead(KILL_PIN) == LOW){
+    if(digitalRead(KILL_PIN) == LOW || estop == HIGH){ //low is pressed, high is released
       estop = HIGH;
+      setStepperEmergency();
+      Hstepper.setCurrentPosition(0); //set current position as zero
+      Hstepper.moveTo(0);
+      //Vstepper.setCurrentPosition(0); //set current position as zero
+      //Vstepper.moveTo(0);
     }
   }
-  estop = LOW;
+//  estop = LOW;
 }
 
-void homeStepper(AccelStepper myStepper, int EndStopPin){
+void homeStepper(AccelStepper myStepper, int EndStopPin){ //vertical calibration
 //  https://www.brainy-bits.com/setting-stepper-motors-home-position-using-accelstepper/
   myStepper.setMaxSpeed(100.0); //slow the stepper down
   myStepper.setAcceleration(100.0); //slow the acceleration down
@@ -594,6 +605,16 @@ void setStepperDefaults(){
     Vstepper.setAcceleration(100.0);
     Hstepper.setMaxSpeed(200.0);
     Hstepper.setAcceleration(100.0);
+}
+void setStepperEmergency(){
+    //Vstepper.setMaxSpeed(0.0); //set speed to 0
+    //Vstepper.setAcceleration(500.0); //crank acc to max so it stops ASAP
+    Hstepper.setMaxSpeed(0.0);
+    Hstepper.setAcceleration(500.0);
+}
+void exitestop(){
+    estop = LOW; //force estop to low after exiting loop.
+    setStepperDefaults();
 }
 int PicsToSteps(int numPics){
   #define gearTeeth 540.0 //number of teeth on the device large gear (assuming gear was full in case of arch)
@@ -703,7 +724,7 @@ void whatToDraw() {
         case 0: { //splash screen
             //menu_max=0;
             u8g.drawStr(32,16,"ScappCam");
-            u8g.drawStr(32,32,"V1.3");
+            u8g.drawStr(32,32,"V1.4 (estop)");
               //V1.1 = fixed start menu drawing artifacts
               //V1.2 = fixed number of steps rounding issue
             u8g.drawBitmapP( 0, 16, 4, 32, scappcam_bitmap); //x,y,width/8,height
