@@ -615,7 +615,7 @@ int angleToSteps(int angle){
   #define stepperTeeth 13.0 //number of teeth on the stepper's gear
   #define stepper360 200.0 //number of steps for a full stepper rotation
   int steps = 0;
-  steps = ( (gearTeeth/stepperTeeth)*(stepper360)*angle);
+  steps = ( (gearTeeth/stepperTeeth)*(stepper360/360)*angle);
   //Serial.print("steps: ");
   //Serial.println(steps);
   return steps;
