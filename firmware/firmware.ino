@@ -703,7 +703,7 @@ void whatToDraw() {
         case 0: { //splash screen
             //menu_max=0;
             u8g.drawStr(32,16,"ScappCam");
-            u8g.drawStr(32,32,"V1.2");
+            u8g.drawStr(32,32,"V1.3");
               //V1.1 = fixed start menu drawing artifacts
               //V1.2 = fixed number of steps rounding issue
             u8g.drawBitmapP( 0, 16, 4, 32, scappcam_bitmap); //x,y,width/8,height
