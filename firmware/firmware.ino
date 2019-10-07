@@ -67,6 +67,9 @@ int okReleased = 0;
 
 int selected = 0;
 
+bool scanning = LOW; //bool for drawing start menu when running
+int currPic;
+
 bool estop = LOW; //low is off, high is on
 int turn;
 
@@ -307,6 +310,7 @@ void loop() {
                     selected = 1;
                     Serial.println("selected set to 1");
                     drawScreen();
+                    
                     while(okReleased != 1){
                       readEncoder();
                       Vstepper.run();
@@ -329,6 +333,7 @@ void loop() {
                         }
                       }
                     } //while
+                    
                     Serial.println("left vertical angle");
                     selected = 0;
                     Serial.println("selected set to 0");
@@ -494,11 +499,13 @@ void loop() {
                     Serial.println("Starting!");
                     //Vpics does nothing
                     //Hpics is /360 # pics starting at 0
-
+                    scanning = HIGH;
                     Hstepper.setCurrentPosition(0); //set current position as zero
                     turn = PicsToSteps(hPicInt);
                     //turn = angleToSteps(360/hPicInt); //rounding errors (100 pics = 3 deg per pic * 100 = 300 deg total, not 360)
                     for (int i=0; i<hPicInt;i++){
+                      currPic = i;
+                      drawScreen();
                       if (estop == HIGH){
                         Serial.println("estop high! break out of loop!");
                         break; //break out of the for loop
@@ -513,6 +520,8 @@ void loop() {
                     }
                     exitestop();
                     break;
+                    scanning = LOW;
+                    drawScreen();
                   case 1: //Back
                     menu_current = 3; //reset cursor
                     screen = 1; //goto root screen
@@ -595,6 +604,7 @@ void homeStepper(AccelStepper myStepper, int EndStopPin){ //vertical calibration
     initial_homing++;
     delay(5);
   }
+  initial_homing=0;
   myStepper.setCurrentPosition(0);
   Serial.println("Homing Complete!");
   setStepperDefaults();
@@ -722,14 +732,34 @@ void whatToDraw() {
     
     switch (screen) {
         case 0: { //splash screen
-            //menu_max=0;
-            u8g.drawStr(32,16,"ScappCam");
-            u8g.drawStr(32,32,"V1.4 (estop)");
-              //V1.1 = fixed start menu drawing artifacts
-              //V1.2 = fixed number of steps rounding issue
-            u8g.drawBitmapP( 0, 16, 4, 32, scappcam_bitmap); //x,y,width/8,height
-            //u8g.drawFrame(0,51,64,13);
-            //press OK to calibrate
+//            //menu_max=0;
+//            u8g.drawStr(32,16,"ScappCam");
+//            u8g.drawStr(32,32,"V1.4 (estop)");
+//              //V1.1 = fixed start menu drawing artifacts
+//              //V1.2 = fixed number of steps rounding issue
+//            u8g.drawBitmapP( 0, 16, 4, 32, scappcam_bitmap); //x,y,width/8,height
+//            //u8g.drawFrame(0,51,64,13);
+//            //press OK to calibrate
+              currPic = 13;
+              hPicInt = 35;
+
+              u8g.drawStr(32,16,"Scanning"); //width, height
+              
+              char buf[9];
+              sprintf (buf, "%d", currPic);
+              u8g.drawStr(32, 32, buf);
+              
+              u8g.drawStr(64,32,"/");
+              
+              sprintf (buf, "%d", hPicInt);
+              u8g.drawStr(72,32, buf);
+
+              float pcnt = ((float(currPic))/(float(hPicInt))*100);
+              sprintf (buf, "%f", pcnt);
+              u8g.drawStr(32,48, buf);
+
+              u8g.drawStr(64,48,"%"); //3rd line
+
         } break;
         case 1: { //root screen
             menu_max=3;
@@ -857,21 +887,43 @@ void whatToDraw() {
             }
          } break;
 
-         case 5: {//start screen
-            menu_max=1;
-            const char *start_menu[2] = { "Start", "Back" };
-
-             for( i = 0; i < 2; i++ ) {
-                //d = (w-u8g.getStrWidth(menu_strings[i]))/2; //center text
-                d = 8; //left justified
-                u8g.setDefaultForegroundColor();
-                if ( i == menu_current ) {
-                    u8g.drawBox(0, i*h+1, w, h); //filled box
-                    //u8g.drawFrame(0, i*h+1, w, h); //outline box (if disabling foreground/background color)
-                    u8g.setDefaultBackgroundColor();
-                }
-                u8g.drawStr(d, i*h, start_menu[i]);
+         case 5: {//start screen & scanning screen
+            if (!scanning){ //if not scanning, display start and back
+              menu_max=1;
+              const char *start_menu[2] = { "Start", "Back" };
+  
+               for( i = 0; i < 2; i++ ) {
+                  //d = (w-u8g.getStrWidth(menu_strings[i]))/2; //center text
+                  d = 8; //left justified
+                  u8g.setDefaultForegroundColor();
+                  if ( i == menu_current ) {
+                      u8g.drawBox(0, i*h+1, w, h); //filled box
+                      //u8g.drawFrame(0, i*h+1, w, h); //outline box (if disabling foreground/background color)
+                      u8g.setDefaultBackgroundColor();
+                  }
+                  u8g.drawStr(d, i*h, start_menu[i]);
+              }
             }
+            else if (scanning){ //if scanning, display scanning menu
+              u8g.drawStr(32,16,"Scanning"); //width, height
+              
+              char buf[9];
+              sprintf (buf, "%d", currPic);
+              u8g.drawStr(32, 32, buf);
+              
+              u8g.drawStr(64,32,"/");
+              
+              sprintf (buf, "%d", hPicInt);
+              u8g.drawStr(72,32, buf);
+
+              sprintf (buf, "%d", (currPic/hPicInt));
+              u8g.drawStr(32,48, buf);
+
+              u8g.drawStr(64,48,"%"); //3rd line
+            }
+
+          
+            
          } break;
 
          break;
