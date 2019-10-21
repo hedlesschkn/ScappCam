@@ -497,18 +497,19 @@ void loop() {
                 switch (menu_current){
                   case 0: //start
                     Serial.println("Starting!");
-                    //Vpics does nothing
-                    //Hpics is /360 # pics starting at 0
                     scanning = HIGH;
                     Hstepper.setCurrentPosition(0); //set current position as zero
                     turn = PicsToSteps(hPicInt);
                     //turn = angleToSteps(360/hPicInt); //rounding errors (100 pics = 3 deg per pic * 100 = 300 deg total, not 360)
-                    for (int i=0; i<hPicInt;i++){
+                    for (int i=1; i<=hPicInt;i++){
                       currPic = i;
                       drawScreen();
                       if (estop == HIGH){
+                        u8g.drawStr(32,16,"        ");
+                        u8g.drawStr(32,16,"E-STOP!");
                         Serial.println("estop high! break out of loop!");
                         break; //break out of the for loop
+                        delay(500);
                       }
                       takePic();
                       autoMove(turn);
@@ -519,9 +520,9 @@ void loop() {
                       Hstepper.setCurrentPosition(0); //set current position as zero.
                     }
                     exitestop();
-                    break;
                     scanning = LOW;
                     drawScreen();
+                    break;
                   case 1: //Back
                     menu_current = 3; //reset cursor
                     screen = 1; //goto root screen
@@ -563,13 +564,8 @@ void takePic(){
   delay(afterPicWaitInt);         //wait for exposure time to finish
 }
 
-void autoMove(int steps){
-  //check for kill button every loop
-  setStepperDefaults();
-  Hstepper.moveTo(steps);
-  while(Hstepper.distanceToGo() > 0){
-    Hstepper.run();
-    if(digitalRead(KILL_PIN) == LOW || estop == HIGH){ //low is pressed, high is released
+void stopscan(){
+  if(digitalRead(KILL_PIN) == LOW || estop == HIGH){ //low is pressed, high is released
       estop = HIGH;
       setStepperEmergency();
       Hstepper.setCurrentPosition(0); //set current position as zero
@@ -577,6 +573,15 @@ void autoMove(int steps){
       //Vstepper.setCurrentPosition(0); //set current position as zero
       //Vstepper.moveTo(0);
     }
+}
+
+void autoMove(int steps){
+  //check for kill button every loop
+  setStepperDefaults();
+  Hstepper.moveTo(steps);
+  while(Hstepper.distanceToGo() > 0){
+    Hstepper.run();
+    stopscan();
   }
 //  estop = LOW;
 }
@@ -732,34 +737,15 @@ void whatToDraw() {
     
     switch (screen) {
         case 0: { //splash screen
-//            //menu_max=0;
-//            u8g.drawStr(32,16,"ScappCam");
-//            u8g.drawStr(32,32,"V1.4 (estop)");
-//              //V1.1 = fixed start menu drawing artifacts
-//              //V1.2 = fixed number of steps rounding issue
-//            u8g.drawBitmapP( 0, 16, 4, 32, scappcam_bitmap); //x,y,width/8,height
-//            //u8g.drawFrame(0,51,64,13);
-//            //press OK to calibrate
-              currPic = 13;
-              hPicInt = 35;
-
-              u8g.drawStr(32,16,"Scanning"); //width, height
-              
-              char buf[9];
-              sprintf (buf, "%d", currPic);
-              u8g.drawStr(32, 32, buf);
-              
-              u8g.drawStr(64,32,"/");
-              
-              sprintf (buf, "%d", hPicInt);
-              u8g.drawStr(72,32, buf);
-
-              float pcnt = ((float(currPic))/(float(hPicInt))*100);
-              sprintf (buf, "%f", pcnt);
-              u8g.drawStr(32,48, buf);
-
-              u8g.drawStr(64,48,"%"); //3rd line
-
+            //menu_max=0;
+            u8g.drawStr(32,16,"ScappCam");
+            u8g.drawStr(32,32,"V1.5");
+            u8g.drawStr(32,48,"(scan menu)");
+              //V1.1 = fixed start menu drawing artifacts
+              //V1.2 = fixed number of steps rounding issue
+            u8g.drawBitmapP( 0, 16, 4, 32, scappcam_bitmap); //x,y,width/8,height
+            //u8g.drawFrame(0,51,64,13);
+            //press OK to calibrate
         } break;
         case 1: { //root screen
             menu_max=3;
@@ -911,15 +897,22 @@ void whatToDraw() {
               sprintf (buf, "%d", currPic);
               u8g.drawStr(32, 32, buf);
               
-              u8g.drawStr(64,32,"/");
+              u8g.drawStr(56,32,"/");
               
               sprintf (buf, "%d", hPicInt);
-              u8g.drawStr(72,32, buf);
+              u8g.drawStr(66,32, buf);
 
-              sprintf (buf, "%d", (currPic/hPicInt));
-              u8g.drawStr(32,48, buf);
-
-              u8g.drawStr(64,48,"%"); //3rd line
+              //float functionality removed from sprintf in arduino
+              float pcnt = ((float(currPic))/(float(hPicInt))*100);
+              char str[10];
+              if (pcnt < 100){
+                dtostrf(pcnt, 5, 2, str);
+              }
+              else{
+                dtostrf(pcnt, 5, 1, str);
+              }
+              u8g.drawStr(32,48, str);
+              u8g.drawStr(72,48,"%"); //3rd line
             }
 
           
