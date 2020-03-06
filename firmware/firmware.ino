@@ -32,9 +32,9 @@
 #include <SPI.h>
 #include <RotaryEncoder.h> //ManageLibraries > RotaryEncoder by Matthias Hertel
 //#include "U8g2lib.h" //ManageLibraries > U8g2
-#include <U8glib.h>
+#include <U8glib.h> //ManageLibraries > U8glib
 #include <Wire.h>
-#include <AccelStepper.h>
+#include <AccelStepper.h> //ManageLibraries > AccelStepper
 
 #define DOGLCD_CS       16
 #define DOGLCD_MOSI     17
@@ -502,18 +502,25 @@ void loop() {
                     turn = PicsToSteps(hPicInt);
                     //turn = angleToSteps(360/hPicInt); //rounding errors (100 pics = 3 deg per pic * 100 = 300 deg total, not 360)
                     for (int i=1; i<=hPicInt;i++){
+                      Serial.println("************************TEST******************");
                       currPic = i;
                       drawScreen();
+                      Serial.println("after drawscreen");
                       if (estop == HIGH){
                         u8g.drawStr(32,16,"        ");
                         u8g.drawStr(32,16,"E-STOP!");
+                        drawScreen();
                         Serial.println("estop high! break out of loop!");
                         break; //break out of the for loop
                         delay(500);
                       }
+                      Serial.println("after estop if");
                       takePic();
+                      Serial.println("after pic");
                       autoMove(turn);
+                      Serial.println("after automove");
                       Hstepper.setCurrentPosition(0); //set current position as zero
+                      Serial.println("after h set 0");
                     }
                     if (estop == LOW){
                       autoMove( 360-(hPicInt*turn) ); //go back to 360 degrees when done
@@ -547,22 +554,33 @@ void takePic(){
 //int afterPicWaitInt = 0;    //number in ms for post pic delay
 //bool autoFocus = HIGH;
 
-  delay(prePicTime);
+  safe_delay(prePicTime);
   if (autoFocus == HIGH){
     Serial.println("focusing");
     digitalWrite(focusPin,HIGH);    //press focus button
-    delay(focusLength);           //stay pressed for focus length
+    safe_delay(focusLength);           //stay pressed for focus length
     digitalWrite(focusPin,LOW);     // release focus button
     Serial.println("focused");
-    delay(50);
+    safe_delay(50);
   }
   Serial.println("taking picture");
   digitalWrite(shutterPin,HIGH);  //press shutter button
-  delay(shutterLength);           //stay pressed for shutter length
+  safe_delay(shutterLength);           //stay pressed for shutter length
   digitalWrite(shutterPin,LOW);   //release shutter button
   Serial.println("picture taken");
-  delay(afterPicWaitInt);         //wait for exposure time to finish
+  safe_delay(afterPicWaitInt);         //wait for exposure time to finish
 }
+
+void safe_delay(unsigned long duration)
+{
+  unsigned long start = millis();
+
+  while (millis()- start <= duration){
+    stopscan(); //check for estop
+  }
+}
+
+
 
 void stopscan(){
   if(digitalRead(KILL_PIN) == LOW || estop == HIGH){ //low is pressed, high is released
@@ -635,6 +653,11 @@ int PicsToSteps(int numPics){
   #define gearTeeth 540.0 //number of teeth on the device large gear (assuming gear was full in case of arch)
   #define stepperTeeth 13.0 //number of teeth on the stepper's gear
   #define stepper360 200.0 //number of steps for a full stepper rotation
+    //https://reprap.org/wiki/RAMPS_1.4#Stepper_Driver_Boards
+    //micro stepping can reduce noise but also reduces efficency and torque, also need to scale speed equally
+    //https://www.machinedesign.com/archive/article/21812154/microstepping-myths
+    //https://www.cnczone.com/forums/stepper-motors-drives/13678-effect-microstepping-torque.html
+    //all jumpers is 1/16 for A4988
   int steps = 0;
   // 540/13 = 41.5 full rotations of the stepper to get one full rotation of the ring gear
   // 200 steps per rotation of stepper
@@ -728,6 +751,7 @@ int calcPicAngle(int numPics, int max_angle){
 }
 
 void whatToDraw() {
+    //stopscan(); //check for estop
     uint8_t i, h;
     int w, d;
     u8g.setFontRefHeightText();
@@ -739,8 +763,8 @@ void whatToDraw() {
         case 0: { //splash screen
             //menu_max=0;
             u8g.drawStr(32,16,"ScappCam");
-            u8g.drawStr(32,32,"V1.5");
-            u8g.drawStr(32,48,"(scan menu)");
+            u8g.drawStr(32,32,"V1.6");
+            u8g.drawStr(32,48,"(estop fix)");
               //V1.1 = fixed start menu drawing artifacts
               //V1.2 = fixed number of steps rounding issue
             u8g.drawBitmapP( 0, 16, 4, 32, scappcam_bitmap); //x,y,width/8,height
